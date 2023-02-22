@@ -1,5 +1,5 @@
 [project]
-name = "adp-sync"
+name = "adp_sync"
 version = "0.1.0"
 description = ""
 authors = [
@@ -36,4 +36,4 @@ test = { shell = "pdm run pytest", help = "run tests with the default Python" }
 extract-workers = { call = "adp_sync.extract:main" }
 update-workers = { call = "adp_sync.workers_update:main" }
 extract-wfm = { call = "adp_sync.wfm_extract:main" }
-post_lock = { shell = "pdm export -f requirements -o requirements.txt" }
+_.env_file = "env/.env"

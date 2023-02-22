@@ -3,8 +3,9 @@ import json
 import os
 import traceback
 
-from adp_sync import adp
 from datarobot.utilities import email
+
+from adp_sync import adp
 
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
