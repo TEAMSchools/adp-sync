@@ -52,6 +52,7 @@ def get_refresh_payload(login_payload, refresh_token):
 
 def authenticate(client, payload):
     client.headers["Content-Type"] = "application/x-www-form-urlencoded"
+    client.headers["appkey"] = os.getenv("WFM_APP_KEY")
     client.headers.pop("Authorization", "")  # remove existing auth for refresh
 
     response = client.post(
@@ -72,8 +73,8 @@ def authenticate(client, payload):
 def main():
     script_dir = pathlib.Path(__file__).absolute().parent
 
-    yaml_path = script_dir / "config" / "wfm.yaml"
-    report_configs = yaml.safe_load(yaml_path.open("r")).get("reports")
+    with open(os.getenv("WFM_YAML_PATH"), "r") as f:
+        report_configs = yaml.safe_load(f).get("reports")
 
     wfm = get_client(os.getenv("WFM_HOST_NAME"), os.getenv("WFM_APP_KEY"))
     login_payload = {
@@ -166,7 +167,7 @@ def main():
                 )
 
                 # save as file
-                file_dir = script_dir / "data" / tex["name"]
+                file_dir = script_dir.parent.parent / "data" / tex["name"]
                 if not file_dir.exists():
                     print(f"\tCreating {file_dir}...")
                     file_dir.mkdir(parents=True)
