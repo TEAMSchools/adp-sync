@@ -1,6 +1,6 @@
 version: 0.1
 cli:
-  version: 1.5.0
+  version: 1.5.1
 plugins:
   sources:
     - id: trunk
@@ -8,6 +8,7 @@ plugins:
       uri: https://github.com/trunk-io/plugins
 lint:
   enabled:
+    - black@23.1.0
     - flake8@6.0.0
     - git-diff-check
     - gitleaks@8.15.3

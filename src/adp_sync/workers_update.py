@@ -3,18 +3,7 @@ import json
 import os
 import traceback
 
-from datarobot.utilities import email
-
-from adp_sync import adp
-
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-CERT_FILEPATH = os.getenv("CERT_FILEPATH")
-KEY_FILEPATH = os.getenv("KEY_FILEPATH")
-ADP_IMPORT_FILE = os.getenv("ADP_IMPORT_FILE")
-ADP_EXPORT_FILE = os.getenv("ADP_EXPORT_FILE")
-
-WORKER_ENDPOINT = "/events/hr/v1/worker"
+from adp_sync import adp, email
 
 
 def get_worker_item(
@@ -85,17 +74,24 @@ def get_event_payload(associate_oid, item_id, string_value):
 
 
 def main():
+    worker_endpoint = "/events/hr/v1/worker"
+
     print("Authenticating with ADP...")
-    adp_client = adp.authorize(CLIENT_ID, CLIENT_SECRET, CERT_FILEPATH, KEY_FILEPATH)
+    adp_client = adp.authorize(
+        os.getenv("CLIENT_ID"),
+        os.getenv("CLIENT_SECRET"),
+        os.getenv("CERT_FILEPATH"),
+        os.getenv("KEY_FILEPATH"),
+    )
     print("\tSUCCESS!")
 
     print("Loading db import data...")
-    with open(ADP_IMPORT_FILE, "r") as f:
+    with open(os.getenv("ADP_IMPORT_FILE"), "r") as f:
         import_data = json.load(f)
     print("\tSUCCESS!")
 
     print("Loading ADP export data...")
-    with gzip.open(ADP_EXPORT_FILE, "r") as f:
+    with gzip.open(os.getenv("ADP_EXPORT_FILE"), "r") as f:
         workers_export_data = json.loads(f.read().decode("utf-8"))
     print("\tSUCCESS!")
 
@@ -135,7 +131,7 @@ def main():
                 try:
                     adp.post(
                         session=adp_client,
-                        endpoint=WORKER_ENDPOINT,
+                        endpoint=worker_endpoint,
                         subresource="business-communication.email",
                         verb="change",
                         payload={"events": [work_email_data]},
@@ -143,11 +139,14 @@ def main():
                 except Exception as xc:
                     print(xc)
                     print(traceback.format_exc())
-                    email_subject = "ADP Worker Update Error - Email"
-                    email_body = (
-                        f"{i['employee_number']}\n\n{xc}\n\n{traceback.format_exc()}"
+                    email.send_email(
+                        subject="ADP Worker Update Error - Email",
+                        body=(
+                            f"{i['employee_number']}\n\n"
+                            f"{xc}\n\n"
+                            f"{traceback.format_exc()}"
+                        ),
                     )
-                    email.send_email(subject=email_subject, body=email_body)
 
             # update employee number if missing
             if not record_match.get("employee_number").get("stringValue"):
@@ -167,7 +166,7 @@ def main():
                 try:
                     adp.post(
                         session=adp_client,
-                        endpoint=WORKER_ENDPOINT,
+                        endpoint=worker_endpoint,
                         subresource="custom-field.string",
                         verb="change",
                         payload={"events": [emp_num_data]},
@@ -175,8 +174,16 @@ def main():
                 except Exception as xc:
                     print(xc)
                     print(traceback.format_exc())
+                    email.send_email(
+                        subject="ADP Worker Update Error - Employee Number",
+                        body=(
+                            f"{i['employee_number']}\n\n"
+                            f"{xc}\n\n"
+                            f"{traceback.format_exc()}"
+                        ),
+                    )
 
-            # update wfm badge number (employee_number), if missing
+            # update wfm badge number, if missing
             if not record_match.get("wfm_badge_number").get("stringValue"):
                 print(
                     f"{i['employee_number']}"
@@ -194,7 +201,7 @@ def main():
                 try:
                     adp.post(
                         session=adp_client,
-                        endpoint=WORKER_ENDPOINT,
+                        endpoint=worker_endpoint,
                         subresource="custom-field.string",
                         verb="change",
                         payload={"events": [wfm_badge_data]},
@@ -202,6 +209,14 @@ def main():
                 except Exception as xc:
                     print(xc)
                     print(traceback.format_exc())
+                    email.send_email(
+                        subject="ADP Worker Update Error - WFM Badge #",
+                        body=(
+                            f"{i['employee_number']}\n\n"
+                            f"{xc}\n\n"
+                            f"{traceback.format_exc()}"
+                        ),
+                    )
 
             # update wfm trigger if not null
             if i["wfm_trigger"]:
@@ -221,7 +236,7 @@ def main():
                 try:
                     adp.post(
                         session=adp_client,
-                        endpoint=WORKER_ENDPOINT,
+                        endpoint=worker_endpoint,
                         subresource="custom-field.string",
                         verb="change",
                         payload={"events": [wfm_trigger_data]},
@@ -229,11 +244,14 @@ def main():
                 except Exception as xc:
                     print(xc)
                     print(traceback.format_exc())
-                    email_subject = "ADP Worker Update Error - WFM trigger"
-                    email_body = (
-                        f"{i['employee_number']}\n\n{xc}\n\n{traceback.format_exc()}"
+                    email.send_email(
+                        subject="ADP Worker Update Error - WFM trigger",
+                        body=(
+                            f"{i['employee_number']}\n\n"
+                            f"{xc}\n\n"
+                            f"{traceback.format_exc()}"
+                        ),
                     )
-                    email.send_email(subject=email_subject, body=email_body)
 
     print("SUCCESS!")
 
@@ -244,6 +262,6 @@ if __name__ == "__main__":
     except Exception as xc:
         print(xc)
         print(traceback.format_exc())
-        email_subject = "ADP Worker Update Error"
-        email_body = f"{xc}\n\n{traceback.format_exc()}"
-        email.send_email(subject=email_subject, body=email_body)
+        email.send_email(
+            subject="ADP Worker Update Error", body=f"{xc}\n\n{traceback.format_exc()}"
+        )

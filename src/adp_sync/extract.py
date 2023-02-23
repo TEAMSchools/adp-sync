@@ -4,38 +4,33 @@ import os
 import pathlib
 import traceback
 
-# from datarobot.utilities import email
 from google.cloud import storage
 
-from adp_sync import adp
-
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-CERT_FILEPATH = os.getenv("CERT_FILEPATH")
-KEY_FILEPATH = os.getenv("KEY_FILEPATH")
-GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
-
-PROJECT_PATH = pathlib.Path(__file__).absolute().parent
+from adp_sync import adp, email
 
 
 def main():
     # instantiate ADP client
-    adp_client = adp.authorize(CLIENT_ID, CLIENT_SECRET, CERT_FILEPATH, KEY_FILEPATH)
+    adp_client = adp.authorize(
+        os.getenv("CLIENT_ID"),
+        os.getenv("CLIENT_SECRET"),
+        os.getenv("CERT_FILEPATH"),
+        os.getenv("KEY_FILEPATH"),
+    )
 
     # instantiate GCS client
     gcs_storage_client = storage.Client()
-    gcs_bucket = gcs_storage_client.bucket(GCS_BUCKET_NAME)
+    gcs_bucket = gcs_storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
 
     # define endpoint variables
     endpoint = "/hr/v2/workers"
     table_name = endpoint.replace("/", "_")
-    print(f"{endpoint}")
+    print(endpoint)
 
-    data_path = PROJECT_PATH / "data" / table_name
+    data_path = pathlib.Path(__file__).absolute().parent / "data" / table_name
+    data_path.mkdir(parents=True, exist_ok=True)
+
     data_file = data_path / f"{table_name}.json.gz"
-    if not data_path.exists():
-        data_path.mkdir(parents=True)
-        print(f"\tCreated {'/'.join(data_path.parts[-3:])}...")
 
     querystring = {
         "$select": ",".join(
@@ -72,6 +67,6 @@ if __name__ == "__main__":
     except Exception as xc:
         print(xc)
         print(traceback.format_exc())
-        # email_subject = "ADP Extract Error"
-        # email_body = f"{xc}\n\n{traceback.format_exc()}"
-        # email.send_email(subject=email_subject, body=email_body)
+        email.send_email(
+            subject="ADP Extract Error", body=f"{xc}\n\n{traceback.format_exc()}"
+        )

@@ -5,20 +5,9 @@ import traceback
 
 import requests
 import yaml
-from datarobot.utilities import email
 from google.cloud import storage
 
-WFM_HOST_NAME = os.getenv("WFM_HOST_NAME")
-WFM_APP_KEY = os.getenv("WFM_APP_KEY")
-WFM_CLIENT_ID = os.getenv("WFM_CLIENT_ID")
-WFM_CLIENT_SECRET = os.getenv("WFM_CLIENT_SECRET")
-WFM_USERNAME = os.getenv("WFM_USERNAME")
-WFM_PASSWORD = os.getenv("WFM_PASSWORD")
-GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
-
-PROJECT_PATH = pathlib.Path(__file__).absolute().parent
-DATA_PATH = PROJECT_PATH / "data"
-YAML_PATH = PROJECT_PATH / "config" / "wfm.yaml"
+from adp_sync import email
 
 
 def get_client(host_name, app_key):
@@ -31,10 +20,13 @@ def get_client(host_name, app_key):
 
 
 def api_call(client, method, endpoint, **kwargs):
-    url = f"{client.base_url}{endpoint}"
     try:
-        response = client.request(method, url, **kwargs)
+        response = client.request(
+            method=method, url=f"{client.base_url}{endpoint}", **kwargs
+        )
+
         response.raise_for_status()
+
         return response
     except requests.exceptions.HTTPError:
         if response.status_code == 401:
@@ -45,17 +37,6 @@ def api_call(client, method, endpoint, **kwargs):
             raise requests.exceptions.HTTPError(
                 f"{error_json.get('errorCode')}: {error_json.get('message')}"
             )
-
-
-def get_login_payload(client_id, client_secret, username, password):
-    return {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "auth_chain": "OAuthLdapService",
-        "grant_type": "password",
-        "username": username,
-        "password": password,
-    }
 
 
 def get_refresh_payload(login_payload, refresh_token):
@@ -89,12 +70,20 @@ def authenticate(client, payload):
 
 
 def main():
-    report_configs = yaml.safe_load(YAML_PATH.open("r")).get("reports")
+    script_dir = pathlib.Path(__file__).absolute().parent
 
-    wfm = get_client(WFM_HOST_NAME, WFM_APP_KEY)
-    login_payload = get_login_payload(
-        WFM_CLIENT_ID, WFM_CLIENT_SECRET, WFM_USERNAME, WFM_PASSWORD
-    )
+    yaml_path = script_dir / "config" / "wfm.yaml"
+    report_configs = yaml.safe_load(yaml_path.open("r")).get("reports")
+
+    wfm = get_client(os.getenv("WFM_HOST_NAME"), os.getenv("WFM_APP_KEY"))
+    login_payload = {
+        "client_id": os.getenv("WFM_CLIENT_ID"),
+        "client_secret": os.getenv("WFM_CLIENT_SECRET"),
+        "username": os.getenv("WFM_USERNAME"),
+        "password": os.getenv("WFM_PASSWORD"),
+        "auth_chain": "OAuthLdapService",
+        "grant_type": "password",
+    }
 
     wfm = authenticate(wfm, login_payload)
     wfm.refresh_payload = get_refresh_payload(
@@ -102,7 +91,7 @@ def main():
     )
 
     gcs_storage_client = storage.Client()
-    gcs_bucket = gcs_storage_client.bucket(GCS_BUCKET_NAME)
+    gcs_bucket = gcs_storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
 
     reports = api_call(wfm, "GET", "/v1/platform/reports").json()
     symbolic_periods = api_call(wfm, "GET", "/v1/commons/symbolicperiod").json()
@@ -177,7 +166,7 @@ def main():
                 )
 
                 # save as file
-                file_dir = DATA_PATH / tex["name"]
+                file_dir = script_dir / "data" / tex["name"]
                 if not file_dir.exists():
                     print(f"\tCreating {file_dir}...")
                     file_dir.mkdir(parents=True)
@@ -211,6 +200,6 @@ if __name__ == "__main__":
     except Exception as xc:
         print(xc)
         print(traceback.format_exc())
-        email_subject = "ADP WFM Extract Error"
-        email_body = f"{xc}\n\n{traceback.format_exc()}"
-        email.send_email(subject=email_subject, body=email_body)
+        email.send_email(
+            subject="ADP WFM Extract Error", body=f"{xc}\n\n{traceback.format_exc()}"
+        )

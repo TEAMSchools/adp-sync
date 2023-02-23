@@ -23,6 +23,7 @@
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "trunk.io"
   },
+  "python.defaultInterpreterPath": ".venv/bin/python",
   "python.analysis.autoImportCompletions": false,
   "python.analysis.extraPaths": [
     "${workspaceFolder}/__pypackages__/3.7/lib",
